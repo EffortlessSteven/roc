@@ -7834,10 +7834,18 @@ const BodyContext = struct {
         checked_expr_id: checked.CheckedExprId,
         ty: Type.TypeId,
     ) Allocator.Error!Ast.ExprId {
-        return try self.builder.program.addExpr(.{
-            .ty = ty,
-            .data = try self.lowerDivergentExprDataAtType(checked_expr_id, ty),
-        });
+        const checked_expr = self.view.bodies.exprs[@intFromEnum(checked_expr_id)];
+        return switch (checked_expr.data) {
+            .if_,
+            .match_,
+            .expect_err,
+            => try self.lowerExprWithType(checked_expr_id, ty),
+            .nominal => |nominal| try self.lowerDivergentExprAtType(nominal.backing_expr, ty),
+            else => try self.builder.program.addExpr(.{
+                .ty = ty,
+                .data = try self.lowerDivergentExprDataAtType(checked_expr_id, ty),
+            }),
+        };
     }
 
     fn lowerDivergentExprDataAtType(
